@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cálculo de Derivadas y Análisis</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/mathjs@10.0.0/lib/browser/math.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Cálculo de Derivadas y Análisis</h1>
+        <label for="funcion">Ingresa la función f(x): </label>
+        <input type="text" id="funcion" value="x^2 + 3*x - 1">
+        <button onclick="calcular()">Calcular</button>
+        
+        <div class="resultados">
+            <h2>Resultados</h2>
+            <table class="styled-table">
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Expresión</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Función</td>
+                        <td id="funcion-entrada"></td>
+                    </tr>
+                    <tr>
+                        <td>Derivada</td>
+                        <td id="derivada"></td>
+                    </tr>
+                    <tr>
+                        <td>Factorización</td>
+                        <td id="factorizacion"></td>
+                    </tr>
+                    <tr>
+                        <td>Máximos y Mínimos</td>
+                        <td id="extremos"></td>
+                    </tr>
+                    <tr>
+                        <td>Intervalos de Crecimiento</td>
+                        <td id="crecimiento"></td>
+                    </tr>
+                    <tr>
+                        <td>Intervalos de Decrecimiento</td>
+                        <td id="decrecimiento"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="grafico"></div>
+    </div>
+
+    <script>
+        function calcular() {
+            const funcionEntrada = document.getElementById('funcion').value;
+            document.getElementById('funcion-entrada').innerText = funcionEntrada;
+
+            // Calcular la derivada usando Math.js
+            const funcion = math.parse(funcionEntrada);
+            const derivada = math.derivative(funcion, 'x');
+            const segundaDerivada = math.derivative(derivada, 'x');
+            document.getElementById('derivada').innerText = derivada.toString();
+
+            // Factorizar la función usando Math.js
+            let factorizacion;
+            try {
+                factorizacion = math.simplify(funcionEntrada).toString({ parenthesis: 'all' });
+            } catch (e) {
+                factorizacion = 'No se puede factorizar';
+            }
+            document.getElementById('factorizacion').innerText = factorizacion.replace(/\\/g, '');
+
+            // Encontrar los extremos (máximos y mínimos) y los intervalos de crecimiento y decrecimiento
+            const xValues = math.range(-10, 10, 0.1).toArray();
+            const yValuesFuncion = xValues.map(x => funcion.evaluate({x: x}));
+            const yValuesDerivada = xValues.map(x => derivada.evaluate({x: x}));
+            const yValuesSegundaDerivada = xValues.map(x => segundaDerivada.evaluate({x: x}));
+
+            let extremos = '';
+            let crecimiento = '';
+            let decrecimiento = '';
+            let puntosCriticos = [];
+            
+            for (let i = 0; i < xValues.length - 1; i++) {
+                if (Math.sign(yValuesDerivada[i]) !== Math.sign(yValuesDerivada[i + 1])) {
+                    puntosCriticos.push(xValues[i]);
+                }
+            }
+
+            for (let i = 0; i < puntosCriticos.length; i++) {
+                const x = puntosCriticos[i];
+                const ySegundaDerivada = segundaDerivada.evaluate({x: x});
+                if (ySegundaDerivada > 0) {
+                    extremos += `Mínimo en x = ${x.toFixed(2)}, `;
+                } else if (ySegundaDerivada < 0) {
+                    extremos += `Máximo en x = ${x.toFixed(2)}, `;
+                }
+            }
+
+            let isIncreasing = yValuesDerivada[0] > 0;
+            let lastSwitch = xValues[0];
+
+            for (let i = 1; i < xValues.length; i++) {
+                if (isIncreasing && yValuesDerivada[i] < 0) {
+                    crecimiento += `[${lastSwitch.toFixed(2)}, ${xValues[i].toFixed(2)}], `;
+                    lastSwitch = xValues[i];
+                    isIncreasing = false;
+                } else if (!isIncreasing && yValuesDerivada[i] > 0) {
+                    decrecimiento += `[${lastSwitch.toFixed(2)}, ${xValues[i].toFixed(2)}], `;
+                    lastSwitch = xValues[i];
+                    isIncreasing = true;
+                }
+            }
+
+            if (isIncreasing) {
+                crecimiento += `[${lastSwitch.toFixed(2)}, ${xValues[xValues.length - 1].toFixed(2)}]`;
+            } else {
+                decrecimiento += `[${lastSwitch.toFixed(2)}, ${xValues[xValues.length - 1].toFixed(2)}]`;
+            }
+
+            document.getElementById('extremos').innerText = extremos.slice(0, -2);
+            document.getElementById('crecimiento').innerText = crecimiento.slice(0, -2);
+            document.getElementById('decrecimiento').innerText = decrecimiento.slice(0, -2);
+
+            // Graficar la función y su derivada
+            graficarFuncionYDerivada(funcionEntrada, derivada.toString());
+        }
+
+        function graficarFuncionYDerivada(funcionEntrada, derivadaEntrada) {
+            const xValues = math.range(-10, 10, 0.1).toArray();
+            const funcion = math.compile(funcionEntrada);
+            const derivada = math.compile(derivadaEntrada);
+            const yValuesFuncion = xValues.map(x => funcion.evaluate({x: x}));
+            const yValuesDerivada = xValues.map(x => derivada.evaluate({x: x}));
+            const trace1 = {
+                x: xValues,
+                y: yValuesFuncion,
+                mode: 'lines',
+                name: 'f(x)',
+                line: { color: '#FF7F50' }
+            };
+            const trace2 = {
+                x: xValues,
+                y: yValuesDerivada,
+                mode: 'lines',
+                name: 'f\'(x)',
+                line: { color: '#1E90FF' }
+            };
+            const data = [trace1, trace2];
+            Plotly.newPlot('grafico', data, {
+                title: 'Función y su Derivada',
+                xaxis: { title: 'x' },
+                yaxis: { title: 'y' }
+            });
+        }
+    </script>
+</body>
+</html>
